@@ -1,1 +1,1 @@
-SQL Scripts you can find under /resources/db.migration as i used flyway. Also i added some tests ,because to write some tests never hurts :) . Hope this to make you little happier before  you see the mess in my code :)))
+
