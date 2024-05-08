@@ -1,0 +1,20 @@
+server:
+  port: ${PORT:8080}
+  address: 0.0.0.0
+  forward-headers-strategy: native
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DATABASE:demo_db}?sslMode=REQUIRED&useUnicode=true&characterEncoding=UTF-8&createDatabaseIfNotExist=true
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
