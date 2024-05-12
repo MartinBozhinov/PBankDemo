@@ -4,6 +4,8 @@ import com.example.demo.config.CurrencyWebSocket;
 import com.example.demo.domain.currency.entity.Currency;
 import com.example.demo.domain.currency.entity.CurrencyList;
 import com.example.demo.domain.currency.repository.CurrencyRepository;
+import com.example.demo.domain.dto.CurrencyDTO;
+import com.example.demo.domain.dto.CurrencyListDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.example.demo.domain.common.Constants.BNB_URL;
 
@@ -50,15 +53,18 @@ public class CurrencyService {
 
             JAXBContext jaxbContext = JAXBContext.newInstance(Currency.class);
             Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-            CurrencyList newestRates = (CurrencyList) unmarshaller.unmarshal(new StringReader(xmlData.toString()));
+            CurrencyListDTO newestRates = (CurrencyListDTO) unmarshaller.unmarshal(new StringReader(xmlData.toString()));
 
-            List<Currency> newCurrencies = newestRates.getCurrencies();
+            List<CurrencyDTO> newCurrencies = newestRates.getCurrencies();
 
-            List<Currency> latestRates = repository.findAll();
+            List<CurrencyDTO> latestRates = repository.findAll().stream()
+                    .map(this::mapToDto)
+                    .collect(Collectors.toList());
 
             if (ratesAreDifferent(newCurrencies, latestRates)) {
                 repository.deleteAll();
-                repository.saveAll(newCurrencies);
+                repository.saveAll(newCurrencies.stream().map(this::mapToEntity).collect(Collectors.toList()));
+                return true;
             }
             connection.disconnect();
         } catch (IOException | JAXBException e) {
@@ -67,14 +73,14 @@ public class CurrencyService {
         return false;
     }
 
-    private boolean ratesAreDifferent(List<Currency> newCurrencies, List<Currency> latestCurrencies) {
+    private boolean ratesAreDifferent(List<CurrencyDTO> newCurrencies, List<CurrencyDTO> latestCurrencies) {
         if (newCurrencies.size() != latestCurrencies.size()) {
             return true;
         }
 
-        for (Currency newCurrency : newCurrencies) {
+        for (CurrencyDTO newCurrency : newCurrencies) {
             boolean found = false;
-            for (Currency latestCurrency : latestCurrencies) {
+            for (CurrencyDTO latestCurrency : latestCurrencies) {
                 if (newCurrency.getCurrencyCode().equals(latestCurrency.getCurrencyCode()) &&
                         Double.compare(newCurrency.getRate(), latestCurrency.getRate()) == 0) {
                     found = true;
@@ -88,20 +94,24 @@ public class CurrencyService {
         return false;
     }
 
+    private CurrencyDTO mapToDto(Currency currency) {
+        return new CurrencyDTO(currency.getCurrencyCode(), currency.getCurrencyName(), currency.getRate());
+    }
+
+    private Currency mapToEntity(CurrencyDTO dto) {
+        Currency currency = new Currency();
+        currency.setCurrencyCode(dto.getCurrencyCode());
+        currency.setCurrencyName(dto.getCurrencyName());
+        currency.setRate(dto.getRate());
+        return currency;
+    }
+
     public void addSession(WebSocketSession session) {
         sessions.add(session);
     }
 
     public void removeSession(WebSocketSession session) {
         sessions.remove(session);
-    }
-
-    public void notifyCurrencyUpdates(CurrencyList currencyList) {
-        try {
-            currencyWebSocket.sendCurrencyUpdates(currencyList);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     protected JpaRepository<Currency, Integer> getRepository() {
